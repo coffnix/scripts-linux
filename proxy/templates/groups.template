@@ -1,0 +1,35 @@
+# Global variables
+logdir	/var/log/squidGuard
+dbhome	/opt/yax/proxy/listas
+
+# Time rules
+# abbrev for weekdays:
+# s = sun, m = mon, t =tue, w = wed, h = thu, f = fri, a = sat
+
+# Source addresses
+src CFTV {
+	ip	192.168.0.91
+}
+
+src DIRETORIA {
+        ip      192.168.0.41-192.168.0.45
+        ip      192.168.0.61-192.168.0.65
+}
+
+src SMARTPHONES {
+        ip      192.168.0.31-192.168.0.34
+}
+
+src VMS {
+        ip      192.168.0.21-192.168.0.26
+}
+
+src WIFI {
+        ip      192.168.0.71-192.168.0.75
+}
+
+
+# Destination classes
+################################################################
+#
+#

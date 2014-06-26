@@ -1,0 +1,23 @@
+#############################################################################
+# Policies
+acl {
+	CFTV {
+		pass	all
+	}
+
+	DIRETORIA {
+		pass	all
+	}
+
+	SMARTPHONES {
+		pass	all
+	}
+
+	VMS {
+		pass	all
+	}
+
+	WIFI {
+		pass	all
+	}
+

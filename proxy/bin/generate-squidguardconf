@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# Eliminate whitespace function:
+crunch() {
+  while read FOO ; do
+  echo $FOO
+  done
+}
+
+SQUIDGUARDTEMPLATES="/opt/yax/proxy/templates"
+ROOTDIR="/opt/yax/proxy"
+LISTASDIR="${ROOTDIR}/listas"
+TMP="${ROOTDIR}/tmp"
+SHALLA="shalla/BL"
+MESD="mesd/blacklists"
+NEWCONFSQUIDGUARD="/etc/squidGuard/squidGuard.conf"
+
+mkdir -p  ${TMP}
+#gera lista de diretórios
+
+find ${LISTASDIR}/shalla/BL/ -iname domains |sed s,'/opt/yax/proxy/listas/shalla/BL/',,g |grep -v '/opt/yax/proxy/listas/mesd/blacklists'|crunch|sed -e '/^$/d' > ${TMP}/listas-shalla
+find ${LISTASDIR}/shalla/BL/ -iname urls |sed s,'/opt/yax/proxy/listas/shalla/BL/',,g |grep -v '/opt/yax/proxy/listas/mesd/blacklists'|crunch|sed -e '/^$/d' >> ${TMP}/listas-shalla
+
+find ${LISTASDIR}/mesd/blacklists -iname domains |sed s,'/opt/yax/proxy/listas/mesd/blacklists/',,g |grep -v '/opt/yax/proxy/listas/mesd/blacklists'|crunch |sed -e '/^$/d' > ${TMP}/listas-mesd
+find ${LISTASDIR}/mesd/blacklists -iname urls |sed s,'/opt/yax/proxy/listas/mesd/blacklists/',,g |grep -v '/opt/yax/proxy/listas/mesd/blacklists'|crunch |sed -e '/^$/d' >> ${TMP}/listas-mesd
+
+# realizando limpeza das listas
+cat ${TMP}/listas-shalla |sed s,\/domains,,g |sed s,\/urls,,g|sort|uniq > ${TMP}/listas-shalla-clean
+cat ${TMP}/listas-mesd |sed s,\/domains,,g |sed s,\/urls,,g|sort|uniq > ${TMP}/listas-mesd-clean
+
+######################################
+# insere configurações de grupos e acls
+cat ${SQUIDGUARDTEMPLATES}/groups.template > ${NEWCONFSQUIDGUARD}
+cat ${SQUIDGUARDTEMPLATES}/acl_default.template >> ${NEWCONFSQUIDGUARD}
+######################################
+
+# SHALLA
+
+while read diretorio;do
+	touch ${LISTASDIR}/${SHALLA}/${diretorio}/domains
+	touch ${LISTASDIR}/${SHALLA}/${diretorio}/urls
+	echo "dest $(echo ${diretorio}|sed s,\/,\-,g)-shalla {" >> ${NEWCONFSQUIDGUARD}
+	echo "log $(echo ${diretorio}|sed s,\/,\-,g)-shalla" >> ${NEWCONFSQUIDGUARD}
+	echo "domainlist ${SHALLA}/${diretorio}/domains" >> ${NEWCONFSQUIDGUARD}
+	echo -e "urllist ${SHALLA}/${diretorio}/urls\n}\n" >> ${NEWCONFSQUIDGUARD}
+
+done < ${TMP}/listas-shalla-clean
+
+# MESD
+while read diretorio;do
+	touch ${LISTASDIR}/${MESD}/${diretorio}/domains
+	touch ${LISTASDIR}/${MESD}/${diretorio}/urls
+        echo "dest $(echo ${diretorio}|sed s,\/,\-,g)-mesd {" >> ${NEWCONFSQUIDGUARD}
+	echo "log $(echo ${diretorio}|sed s,\/,\-,g)-mesd" >> ${NEWCONFSQUIDGUARD}
+        echo "domainlist ${MESD}/${diretorio}/domains" >> ${NEWCONFSQUIDGUARD}
+        echo -e "urllist ${MESD}/${diretorio}/urls\n}\n" >> ${NEWCONFSQUIDGUARD}
+
+done < ${TMP}/listas-mesd-clean
+
+
+######################################
+# insere políticas básicas
+cat ${SQUIDGUARDTEMPLATES}/policies.template >> ${NEWCONFSQUIDGUARD}
+######################################
+
+# converte quebra de linhas em espaços vazios das listas de liberação e bloqueio
+
+LISTAS_AUTORIZADAS=$(sed ':a;$!N;s/\n/ /g;ta' ${SQUIDGUARDTEMPLATES}/autorizados.template)
+
+SHALLA_BLOCKS=$(sed ':a;$!N;s/\n/-shalla !/g;ta' ${TMP}/listas-shalla-clean |sed s,\/,\-,g)
+MESD_BLOCKS=$(sed ':a;$!N;s/\n/-mesd !/g;ta' ${TMP}/listas-mesd-clean |sed s,\/,\-,g)
+LISTAS_BLOQUEADAS="!bloqueados !${MESD_BLOCKS}-mesd !${SHALLA_BLOCKS}-shalla"
+
+######################################
+
+echo "bloqueados ${SHALLA_BLOCKS}-shalla ${MESD_BLOCKS}-mesd"|sed s,!,,g |sed 's/ /\n/g' > ${SQUIDGUARDTEMPLATES}/bloqueados.template
+
+######################################
+
+echo "################################################################################" >> ${NEWCONFSQUIDGUARD}
+echo "# Regra default" >> ${NEWCONFSQUIDGUARD}
+echo -e "\ndefault {" >> ${NEWCONFSQUIDGUARD}
+echo "pass ${LISTAS_AUTORIZADAS} ${LISTAS_BLOQUEADAS} all" >> ${NEWCONFSQUIDGUARD}
+echo -e "redirect http://server.bastosservice.com.br/acesso.html\n}\n}" >> ${NEWCONFSQUIDGUARD}
+
+
+##############################
+rm -rf ${TMP}

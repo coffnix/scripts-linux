@@ -1,0 +1,22 @@
+#!/bin/bash
+
+ROOTDIR="/opt/yax/proxy"
+TMP_DIR="${ROOTDIR}/tmp"
+DIR_MESD="${ROOTDIR}/listas/mesd"
+DIR_SHALLA="${ROOTDIR}/listas/shalla"
+
+## Clean old files
+rm -rf ${TMP_DIR} && mkdir -p ${TMP_DIR}
+#rm -rf ${DIR_MESD} && mkdir -p ${DIR_MESD}
+#rm -rf ${DIR_SHALLA} && mkdir -p ${DIR_SHALLA}
+
+## MESD blacklist
+wget -c http://squidguard.mesd.k12.or.us/blacklists.tgz -P ${TMP_DIR}
+tar xzvf ${TMP_DIR}/blacklists.tgz -C ${DIR_MESD}
+
+## SHALLA's blacklist
+wget -c http://www.shallalist.de/Downloads/shallalist.tar.gz -P ${TMP_DIR}
+tar xzvf ${TMP_DIR}/shallalist.tar.gz -C ${DIR_SHALLA}
+
+# : http://urlblacklist.com/cgi-bin/commercialdownload.pl?type=download&file=bigblacklist
+chown -R squid.squid ${ROOTDIR}

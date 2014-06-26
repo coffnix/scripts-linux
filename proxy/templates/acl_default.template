@@ -1,0 +1,9 @@
+dest liberados {
+domainlist liberados/domains
+#urllist	liberados/urls
+}
+
+dest bloqueados {
+domainlist bloqueados/domains
+#urllist	bloqueados/urls
+}
