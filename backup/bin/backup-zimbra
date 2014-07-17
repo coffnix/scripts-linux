@@ -221,7 +221,7 @@ if [ "${BACKUP_FULL}" = "1" ]; then
 
 	### faz um sync com zimbra rodando pra reduzir downtime do serviço de emails durante o backup
 	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando primeiro RSYNC do dir. /opt/zimbra com Zimbra rodando..." >> $BKPLOG
-	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" 2> $ERRORLOG
+	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" --exclude "zibra/db/data" 2> $ERRORLOG
 	
 	####################################################################################################################################
 	# Parando Zimbra para backup
@@ -235,7 +235,7 @@ if [ "${BACKUP_FULL}" = "1" ]; then
 	
 	## Sync new files 
 	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando último RSYNC do dir. /opt/zimbra com Zimbra parado..." >> $BKPLOG
-	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" 2> $ERRORLOG
+	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra-tmp" 2> $ERRORLOG
 	if [ "$?" -gt 1 ]; then
 	        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO SINCRONIZAR /opt/zimbra.\n" >> $BKPLOG
 	        ERROR=1;
