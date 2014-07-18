@@ -36,9 +36,9 @@ SRV_REMOTE="192.168.0.55:/backup/clientes/${FILIAL}"
 ##@@@@@@@@@@@@@@@@@@##
 LIMPEZA="1"
 BACKUP_DATABASES="1"
-BACKUP_CONTAS="1"
 BACKUP_FULL="1"
 BACKUP_LOCAL="1"
+BACKUP_CONTAS="1"
 ENVIO_REMOTO="0"
 ##@@@@@@@@@@@@@@@@@@##
 
@@ -179,35 +179,6 @@ if [ "${BACKUP_DATABASES}" = "1" ]; then
 fi
 
 ####################################################################################################################################
-if [ "${BACKUP_CONTAS}" = "1" ]; then
-	#### Cria diretorios necessarios
-	if [ ! -d  ${ROOTDIR}/files/contas-zimbra ]; then
-	    mkdir -p  ${ROOTDIR}/files/contas-zimbra
-	fi
-	#####################################
-	
-	# Backup de contas individuais
-	mkdir -p ${DIR_DEST}
-	for MAIL in $($ZMPROV -l gaa | sort);  do
-		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Realizando backup da conta ${MAIL}" >> ${BKPLOG}
-		time $ZMMAILBOX -z -m ${MAIL} getRestURL "//?fmt=tgz" > ${DIR_DEST}/${MAIL}.tgz 2> $ERRORLOG
-			if [ "$?" -ne 0 ]; then
-				echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO REALIZAR BACKUP DE EMAIL ${MAIL}" >> $BKPLOG
-			        ERROR=1;
-			fi
-	
-	done
-	
-	
-	if [ "$?" -ne 0 ]; then
-	    echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO REALIZAR BACKUP DE EMAIL ZIMBRA\n" >> $BKPLOG
-	    ERROR=1;
-	else
-	    echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - BACKUP DE CONTA INDIVIDUAL DE EMAIL ZIMBRA REALIZADO COM SUCESSO\n" >> $BKPLOG
-	fi
-	
-fi
-####################################################################################################################################
 if [ "${BACKUP_FULL}" = "1" ]; then
 	#### Cria diretorios necessarios
 	if [ ! -d ${BKPDIR} ]; then
@@ -221,7 +192,7 @@ if [ "${BACKUP_FULL}" = "1" ]; then
 
 	### faz um sync com zimbra rodando pra reduzir downtime do serviço de emails durante o backup
 	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando primeiro RSYNC do dir. /opt/zimbra com Zimbra rodando..." >> $BKPLOG
-	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" --exclude "zibra/db/data" 2> $ERRORLOG
+	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" --exclude "zibra/db/" 2> $ERRORLOG
 	
 	####################################################################################################################################
 	# Parando Zimbra para backup
@@ -293,6 +264,35 @@ if [ "${BACKUP_LOCAL}" = "1" ]; then
 
 fi
 
+####################################################################################################################################
+if [ "${BACKUP_CONTAS}" = "1" ]; then
+	#### Cria diretorios necessarios
+	if [ ! -d  ${ROOTDIR}/files/contas-zimbra ]; then
+	    mkdir -p  ${ROOTDIR}/files/contas-zimbra
+	fi
+	#####################################
+	
+	# Backup de contas individuais
+	mkdir -p ${DIR_DEST}
+	for MAIL in $($ZMPROV -l gaa | sort);  do
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Realizando backup da conta ${MAIL}" >> ${BKPLOG}
+		time $ZMMAILBOX -z -m ${MAIL} getRestURL "//?fmt=tgz" > ${DIR_DEST}/${MAIL}.tgz 2> $ERRORLOG
+			if [ "$?" -ne 0 ]; then
+				echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO REALIZAR BACKUP DE EMAIL ${MAIL}" >> $BKPLOG
+			        ERROR=1;
+			fi
+	
+	done
+	
+	
+	if [ "$?" -ne 0 ]; then
+	    echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO REALIZAR BACKUP DE EMAIL ZIMBRA\n" >> $BKPLOG
+	    ERROR=1;
+	else
+	    echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - BACKUP DE CONTA INDIVIDUAL DE EMAIL ZIMBRA REALIZADO COM SUCESSO\n" >> $BKPLOG
+	fi
+	
+fi
 ####################################################################################################################################
 
 if [ "${ENVIO_REMOTO}" = "1" ]; then
