@@ -345,4 +345,31 @@ bash /backup/bin/clear-cache.sh
 #if [ "$NDAY" = "08" -o  "$NDAY" = "13" -o  "$NDAY" = "23" ]; then
 #echo -e "####################\nestado do servidor no ato do erro:\n\nmemoria:$(free -m)\n\n$(uptime)\n####################" >> $BKPLOG
 
+
+
+
+
+sleep 300
+
+####################################################################################
+####################################################################################
+# Se o zimbra não estiver rodando, inicia o processo....
+
+CHECK_ZIMBRA=$(/etc/init.d/zimbra status | egrep -v "Host|Running" | wc -l)
+if [ "${CHECK_ZIMBRA}" -ne 0 ]; then
+        echo -e "Iniciando Zimbra...\n" 
+        echo /etc/init.d/zimbra stop 2>&1
+        echo /etc/init.d/zimbra start
+fi
+
+####################################################################################
+####################################################################################
+
+
+
+
+
+
+
+
 ## Fim
