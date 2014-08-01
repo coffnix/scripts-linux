@@ -46,7 +46,6 @@ fi
 #mount UUID=${UUID_HDEXT} ${MNT_HDEXT} 2> ${ERRORLOG}
 #if [ $? -gt 0 ]; then
 #	echo "$(date) - ERRO AO MONTAR O COMPARTILHAMENTO HD externo." >> ${BKPLOG}
-#	cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao montar HD externo. `date`";
 #	ERROR=1;
 #	exit 1
 #fi
@@ -75,7 +74,6 @@ if [ "${NDAY}" = "08" -o  "${NDAY}" = "18" -o  "${NDAY}" = "28" ]; then
         rsync -azv --delete ${DIRSMB} ${FULL} 2> ${ERRORLOG}
         if [ "$?" -gt 1 ]; then
 		echo "$(date) - Finalizando backup FULL com erros." >> ${BKPLOG}
-                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos do diff_full. `date`";
                 ERROR=1;
 	else
 		echo "$(date) - Finalizando com sucesso backup FULL." >> ${BKPLOG}
@@ -91,7 +89,6 @@ else
 	rsync -azv --compare-dest="${FULL}" --delete ${DIRSMB} ${DIFFCURRENT} 2> ${ERRORLOG}
         if [ "$?" -gt 1 ]; then
 		echo "$(date) - Finalizando backup DIFF com erros." >> ${BKPLOG}
-                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos diferenciais do diff_full. `date`";
                 ERROR=1;
 	else
 		echo "$(date) - Finalizando com sucesso backup DIFF." >> ${BKPLOG}
@@ -111,7 +108,6 @@ fi
 #			echo "sucesso ao sincronizar DIFF & FULL para a AMAZON" >> ${BKPLOG}
 #			break
 #		else
-#			cat $ERRORLOG | python $MAIL "$FALHA ao sincronizar DIFF & FULL para a AMAZON"
 #			ERROR=1
 #		fi
 #done
