@@ -12,7 +12,7 @@ DATA=$(date +%d-%m-%Y)
 H="$HOUR"
 LOGDIR="${ROOTDIR}/logs"
 LOGMAIL="${LOGDIR}/mailpy.log"
-BKPLOG="${LOGDIR}/backup_compartilhamentos.log"
+BKPLOG="${LOGDIR}/backup_diff_fulls.log"
 ERRORLOG="${LOGDIR}/error.log"
 ERROR="0"
 SUCESSO="SUCESSO"
@@ -20,7 +20,7 @@ FALHA="FALHA"
 UUID_HDEXT="b4f40c62-ebaf-442c-a617-6246e06bfcaf"
 MNT_HDEXT="/mnt_hd"
 DIRSMB="/data/" # Manter o / no fim do diretório para que o comando rsync não duplique o diretório pai
-DIRBKP="${MNT_HDEXT}/backup_compartilhamentos"
+DIRBKP="${MNT_HDEXT}/backup_diff_fulls"
 MACHINE="user"
 FULL="${DIRBKP}/FULL"
 DIFF="${DIRBKP}/DIFF"
@@ -75,7 +75,7 @@ if [ "${NDAY}" = "08" -o  "${NDAY}" = "18" -o  "${NDAY}" = "28" ]; then
         rsync -azv --delete ${DIRSMB} ${FULL} 2> ${ERRORLOG}
         if [ "$?" -gt 1 ]; then
 		echo "$(date) - Finalizando backup FULL com erros." >> ${BKPLOG}
-                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos do compartilhamento. `date`";
+                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos do diff_full. `date`";
                 ERROR=1;
 	else
 		echo "$(date) - Finalizando com sucesso backup FULL." >> ${BKPLOG}
@@ -91,7 +91,7 @@ else
 	rsync -azv --compare-dest="${FULL}" --delete ${DIRSMB} ${DIFFCURRENT} 2> ${ERRORLOG}
         if [ "$?" -gt 1 ]; then
 		echo "$(date) - Finalizando backup DIFF com erros." >> ${BKPLOG}
-                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos diferenciais do compartilhamento. `date`";
+                cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar arquivos diferenciais do diff_full. `date`";
                 ERROR=1;
 	else
 		echo "$(date) - Finalizando com sucesso backup DIFF." >> ${BKPLOG}
