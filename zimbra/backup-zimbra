@@ -20,6 +20,7 @@ FALHA="FALHA"
 FILIAL="zimbra-area31"
 ERROR=0;
 FALHA="FALHA"
+FULLDAY=$(date +%u)
 
 ZMPROV="/opt/zimbra/bin/zmprov"
 ZMMAILBOX="/opt/zimbra/bin/zmmailbox"
@@ -180,67 +181,69 @@ fi
 
 ####################################################################################################################################
 if [ "${BACKUP_FULL}" = "1" ]; then
-	#### Cria diretorios necessarios
-	if [ ! -d ${BKPDIR} ]; then
-	    mkdir -p ${BKPDIR}
+	if [ "${FULLDAY}" = "6" ]; then
+		#### Cria diretorios necessarios
+		if [ ! -d ${BKPDIR} ]; then
+		    mkdir -p ${BKPDIR}
+		fi
+		
+		if [ ! -d ${DIR_DEST} ]; then
+		    mkdir -p ${DIR_DEST}
+		fi
+		#####################################
+	
+		### faz um sync com zimbra rodando pra reduzir downtime do serviço de emails durante o backup
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando primeiro RSYNC do dir. /opt/zimbra com Zimbra rodando..." >> $BKPLOG
+		rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" --exclude "zibra/db/" 2> $ERRORLOG
+		
+		####################################################################################################################################
+		# Parando Zimbra para backup
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Parando Zimbra para backup...\n" >> ${BKPLOG}
+		/etc/init.d/zimbra stop >> ${BKPLOG} 2> ${ERRORLOG}
+		
+		### Kill any orphaned Zimbra processes
+		pkill -9 -u zimbra
+		
+		echo -e "\n$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Zimbra parou para backup" >> ${BKPLOG}
+		
+		## Sync new files 
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando último RSYNC do dir. /opt/zimbra com Zimbra parado..." >> $BKPLOG
+		rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra-tmp" 2> $ERRORLOG
+		if [ "$?" -gt 1 ]; then
+		        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO SINCRONIZAR /opt/zimbra.\n" >> $BKPLOG
+		        ERROR=1;
+		else
+			echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - SINCRONIZADO /opt/zimbra.\n" >> $BKPLOG
+		fi
+		
+		####################################################################################################################################
+		
+		### Iniciando processo do Zimbra ###
+		sleep 3
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando Zimbra...\n" >> ${BKPLOG}
+		/etc/init.d/zimbra start >> ${BKPLOG} 2> $ERRORLOG
+		if [ "$?" -gt 1 ]; then
+		        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO INICIAR ZIMBRA\n" >> $BKPLOG
+		        ERROR=1;
+		else
+			echo -e "\n$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - Zimbra iniciado\n" >> ${BKPLOG}
+		fi
+		####################################################################################################################################
+	
+		### Compactando /opt/zimbra ###
+		mkdir -p ${BKPDIR}/${DATA}
+		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Compactando dir. /opt/zimbra..." >> ${BKPLOG}
+		cd /
+		tar -cjpf ${BKPDIR}/${DATA}/full-bkp_zimbra.tar.bz2 .${TMPDIR} 2> $ERRORLOG
+		if [ "$?" -ne 0 ]; then
+			echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO COMPACTAR DIR /opt/zimbra\n" >> $BKPLOG
+		        ERROR="1"
+		else
+		        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - COMPACTADO DIR /opt/zimbra\n" >> $BKPLOG
+		fi
+		
+	
 	fi
-	
-	if [ ! -d ${DIR_DEST} ]; then
-	    mkdir -p ${DIR_DEST}
-	fi
-	#####################################
-
-	### faz um sync com zimbra rodando pra reduzir downtime do serviço de emails durante o backup
-	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando primeiro RSYNC do dir. /opt/zimbra com Zimbra rodando..." >> $BKPLOG
-	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra/data/ldap" --exclude "zimbra-tmp" --exclude "zibra/db/" 2> $ERRORLOG
-	
-	####################################################################################################################################
-	# Parando Zimbra para backup
-	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Parando Zimbra para backup...\n" >> ${BKPLOG}
-	/etc/init.d/zimbra stop >> ${BKPLOG} 2> ${ERRORLOG}
-	
-	### Kill any orphaned Zimbra processes
-	pkill -9 -u zimbra
-	
-	echo -e "\n$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Zimbra parou para backup" >> ${BKPLOG}
-	
-	## Sync new files 
-	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando último RSYNC do dir. /opt/zimbra com Zimbra parado..." >> $BKPLOG
-	rsync -azvh --delete ${ZIMBRADIR} ${TMPDIR} --exclude "zimbra-tmp" 2> $ERRORLOG
-	if [ "$?" -gt 1 ]; then
-	        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO SINCRONIZAR /opt/zimbra.\n" >> $BKPLOG
-	        ERROR=1;
-	else
-		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - SINCRONIZADO /opt/zimbra.\n" >> $BKPLOG
-	fi
-	
-	####################################################################################################################################
-	
-	### Iniciando processo do Zimbra ###
-	sleep 3
-	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Iniciando Zimbra...\n" >> ${BKPLOG}
-	/etc/init.d/zimbra start >> ${BKPLOG} 2> $ERRORLOG
-	if [ "$?" -gt 1 ]; then
-	        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO INICIAR ZIMBRA\n" >> $BKPLOG
-	        ERROR=1;
-	else
-		echo -e "\n$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - Zimbra iniciado\n" >> ${BKPLOG}
-	fi
-	####################################################################################################################################
-
-	### Compactando /opt/zimbra ###
-	mkdir -p ${BKPDIR}/${DATA}
-	echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): Compactando dir. /opt/zimbra..." >> ${BKPLOG}
-	cd /
-	tar -cjpf ${BKPDIR}/${DATA}/full-bkp_zimbra.tar.bz2 .${TMPDIR} 2> $ERRORLOG
-	if [ "$?" -ne 0 ]; then
-		echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): ERRO AO COMPACTAR DIR /opt/zimbra\n" >> $BKPLOG
-	        ERROR="1"
-	else
-	        echo -e "$(date +'%Y-%m-%d') - $(date +'%H:%M:%S'): OK - COMPACTADO DIR /opt/zimbra\n" >> $BKPLOG
-	fi
-	
-
 fi
 
 ####################################################################################################################################
