@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Adicione ao crontab:
+#
+## # Backup Hackstore
+#30 23 * * * root        /backup/bin/backup-hackstore zimbra  > /backup/log/backup-hackstore.log 2>&1
+## 
+#30 23 * * * root        /backup/bin/backup-hackstore firewall  > /backup/log/backup-hackstore.log 2>&1
+##
+#30 23 * * * root        /backup/bin/backup-hackstore oracle  > /backup/log/backup-hackstore.log 2>&1
+#
+###########################################################################################
+
+
+
+data_hora() {
+echo "[$(date +'%Y/%m/%d') $(date +'%H:%M:%S')]"
+}
+
+for i in $@
+do
+case $i in
+
+zimbra)
+
+# Criando LOCK do script....
+LOCK="/backup/backup-zimbra.lock"
+{
+if ! flock -n 200; then
+        echo -e "$(data_hora) Script rodando.... saindo imediatamente.\n"
+        exit 1
+else
+        /backup/bin/backup-zimbra
+fi
+} 200>${LOCK}
+
+# Removendo arquivo de LOCK...
+rm $LOCK
+
+;;
+                                                                                                                                                            
+*)                                                                                                                                                          
+echo -e "\nEscolha um tipo de backup. Ex:\n\n$0 zimbra\n$0 firewall\n$0 oracle\n\n"
+exit 1
+
+;;
+
+esac done
+
+if [ -z "${1}" ] ; then
+        echo -e "\nEscolha um tipo de backup. Ex:\n\n$0 zimbra\n$0 firewall\n$0 oracle\n\n"
+        exit 1
+fi
+
+
+# Fim
+

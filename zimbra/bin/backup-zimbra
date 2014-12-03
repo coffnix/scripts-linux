@@ -1,0 +1,362 @@
+#!/bin/bash
+#
+# Script para backup do zimbra
+#
+
+# Carrega configurações
+source /backup/conf/backup-zimbra.conf
+
+# Functions
+
+#####################################################
+data_hora(){
+echo "[$(date +'%d/%m/%Y') $(date +'%H:%M:%S')]"
+}
+#####################################################
+
+
+# Inicio backup Zimbra
+echo -e "\n\n###########################################################################" >> $BKPLOG
+echo -e "\n$(data_hora) Iniciando backup Zimbra..." >> $BKPLOG
+
+#################################################
+# Criando diretórios caso não existam:
+if [ ! -d ${LOGDIR} ]; then
+    mkdir -p ${LOGDIR}
+fi
+
+
+##@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@##
+####################################################################################################################################
+##@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@##
+
+# Remove arquivos antigos de backup
+if [ "${LIMPEZA}" = "1" ]; then
+	
+	echo -e "\n$(data_hora) Removendo arquivos antigos de backup..." >> $BKPLOG
+	# Limpeza de backup full
+	find ${BKPDIR} -type f -iname "*-bkp_zimbra.tar.bz2" -ctime +7 -exec rm -f {} \;
+	
+	# bLimpeza de backup Local
+	find ${ROOTDIR}/files/local -type f -iname "confs-bkp_linux*.tar.bz2" -mtime +45 -exec rm -f {} \;
+	
+	# Limpeza de backup das contas
+	find ${ROOTDIR}/files/contas-zimbra -type f -ctime +10 -exec rm -f {} \;
+	
+	# Limpeza de backup das databases
+	find ${DATABASEDIR} -type f -iname "ldap*" -mtime +15 -exec rm -f {} \;
+	find ${DATABASEDIR} -type f -iname "dump-full-*" -mtime +15 -exec rm -f {} \;
+	
+	# Limpeza de diretorios vazios
+	rmdir ${BKPDIR}/* 2> /dev/null
+	rmdir ${DATABASEDIR}/* 2> /dev/null
+	rmdir ${ROOTDIR}/files/contas-zimbra/* 2> /dev/null
+	
+	echo -e "$(data_hora) Finalizada limpeza dos arquivos antigos de backup.\n" >> $BKPLOG
+	
+	#### Cria diretorios necessários após limpeza
+	if [ ! -d ${TMPDIR} ]; then
+	    mkdir -p ${TMPDIR}
+	fi
+	#####################################
+
+fi
+
+####################################################################################################################################
+if [ "${BACKUP_DATABASES}" = "1" ]; then
+	#### Cria diretorios necessarios
+	if [ ! -d ${BKPLDAPDIR}/conf ]; then
+	    mkdir -p ${BKPLDAPDIR}/conf
+	fi
+	
+	if [ ! -d ${BKPMYSQLDIR} ]; then
+	    mkdir -p ${BKPMYSQLDIR}
+	fi
+	#####################################	
+	# Backup LDAP
+
+	CURRENT_STAGE="BACKUP DA CONF DO LDAP"
+	echo -e "$(data_hora) REALIZANDO ${CURRENT_STAGE}..." >> ${BKPLOG}
+
+
+	CURRENT_FUNCTION="CORRIGIR PERMISSAO DO DIR ${BKPLDAPDIR}"
+	chown zimbra. -R $BKPLDAPDIR 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+	
+	
+	CURRENT_FUNCTION="REALIZAR BACKUP DA CONF DO LDAP"
+	su - zimbra -c "/opt/zimbra/libexec/zmslapcat -c $BKPLDAPDIR/conf" 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+	
+	echo -e "$(data_hora) Realizando dump do LDAP..." >> ${BKPLOG}
+
+
+	CURRENT_FUNCTION="EXPORTAR DUMP FULL DO LDAP"
+	su - zimbra -c "/opt/zimbra/libexec/zmslapcat $BKPLDAPDIR" 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+	
+	############################################################################################
+	# Backup MYSQL
+	CURRENT_STAGE="BACKUP DA CONF DO LDAP"
+	echo -e "$(data_hora) REALIZANDO ${CURRENT_STAGE}..." >> ${BKPLOG}
+	echo -e "$(data_hora) Realizando dump do MYSQL..." >> ${BKPLOG}
+
+
+	CURRENT_FUNCTION="CORRIGIR PERMISSAO DO DIR ${BKPMYSQLDIR}"
+	chown zimbra. -R ${BKPMYSQLDIR} 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+	
+
+	CURRENT_FUNCTION="EXPORTAR DUMP MYSQL"
+	su - zimbra -c "/backup/bin/dump-mysql-zimbra.sh $BKPMYSQLDIR/dump-full-$DATA.sql" 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+	
+
+	CURRENT_FUNCTION="COMPACTAR DUMP MYSQL"
+	bzip2 $BKPMYSQLDIR/dump-full-$DATA.sql 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+	        echo -e "$(data_hora) ERRO AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+		cat ${ERRORLOG} | python ${MAILSCRIPT} "${FALHA} AO ${CURRENT_FUNCTION}"
+	        ERROR=1;
+	else
+	        echo -e "$(data_hora) ${SUCESSO} AO ${CURRENT_FUNCTION}\n" >> $BKPLOG
+	fi
+fi
+
+####################################################################################################################################
+if [ "${BACKUP_FULL}" = "1" ]; then
+	if [ "${DIA_SEMANA}" = "${DIA_SEMANA_ESCOLHIDO}" ]; then
+		#### Cria diretorios necessarios
+		if [ ! -d ${BKPDIR} ]; then
+		    mkdir -p ${BKPDIR}
+		fi
+		
+		if [ ! -d ${DIR_DEST} ]; then
+		    mkdir -p ${DIR_DEST}
+		fi
+		#####################################
+	
+		### faz um sync com zimbra rodando pra reduzir downtime do serviço de emails durante o backup
+		echo -e "$(data_hora) Iniciando primeiro RSYNC do dir. /opt/zimbra com Zimbra rodando..." >> $BKPLOG
+		rsync -azvph --delete ${ZIMBRADIR}/ ${TMPDIR}/ --exclude "data/ldap" --exclude "zimbra-tmp" --exclude "db/" 2> $ERRORLOG
+		
+		####################################################################################################################################
+		# Parando Zimbra para backup
+		echo -e "$(data_hora) Parando Zimbra para backup...\n" >> ${BKPLOG}
+		/etc/init.d/zimbra stop >> ${BKPLOG} 2> ${ERRORLOG}
+		
+		### Kill any orphaned Zimbra processes
+		pkill -9 -u zimbra
+		
+		echo -e "\n$(data_hora) Zimbra parou para backup" >> ${BKPLOG}
+		
+		## Sync new files 
+		echo -e "$(data_hora) Iniciando último RSYNC do dir. /opt/zimbra com Zimbra parado..." >> $BKPLOG
+		rsync -azvph --delete ${ZIMBRADIR}/ ${TMPDIR}/ --exclude "zimbra-tmp" 2> $ERRORLOG
+		if [ "$?" -gt 1 ]; then
+		        echo -e "$(data_hora) ERRO AO SINCRONIZAR /opt/zimbra.\n" >> $BKPLOG
+		        ERROR=1;
+		else
+			echo -e "$(data_hora) OK - SINCRONIZADO /opt/zimbra.\n" >> $BKPLOG
+		fi
+		
+		####################################################################################################################################
+		
+		### Iniciando processo do Zimbra ###
+		sleep 3
+		echo -e "$(data_hora) Iniciando Zimbra...\n" >> ${BKPLOG}
+		/etc/init.d/zimbra start >> ${BKPLOG} 2> $ERRORLOG
+		if [ "$?" -gt 1 ]; then
+		        echo -e "$(data_hora) ERRO AO INICIAR ZIMBRA\n" >> $BKPLOG
+		        ERROR=1;
+		else
+			echo -e "\n$(data_hora) OK - Zimbra iniciado\n" >> ${BKPLOG}
+		fi
+		####################################################################################################################################
+	
+		### Compactando /opt/zimbra ###
+		mkdir -p ${BKPDIR}/${DATA}
+		echo -e "$(data_hora) Compactando dir. /opt/zimbra..." >> ${BKPLOG}
+		cd /
+		tar -cjpf ${BKPDIR}/${DATA}/full-bkp_zimbra.tar.bz2 .${TMPDIR} 2> $ERRORLOG
+		if [ "$?" -ne 0 ]; then
+			echo -e "$(data_hora) ERRO AO COMPACTAR DIR /opt/zimbra\n" >> $BKPLOG
+		        ERROR="1"
+		else
+		        echo -e "$(data_hora) OK - COMPACTADO DIR /opt/zimbra\n" >> $BKPLOG
+		fi
+		
+	
+	else
+		echo -e "$(data_hora) BACKUP FULL IGNORADO DEVIDO AO DIA SEMANAL AGENDADO SER O DIA \"${DIA_SEMANA_ESCOLHIDO}\", E HOJE É DIA \"${DIA_SEMANA}\".\n">> $BKPLOG
+		
+	fi
+fi
+
+####################################################################################################################################
+# backup da conf do Linux
+if [ "${BACKUP_LOCAL}" = "1" ]; then
+	#### Cria diretorios necessarios
+	if [ ! -d ${ROOTDIR}/files/local ]; then
+	    mkdir -p ${ROOTDIR}/files/local
+	fi
+	#####################################
+	
+	echo -e "$(data_hora) Realizando backup da conf do Linux..." >> ${BKPLOG}
+	cd /
+	tar cjvpf ${ROOTDIR}/files/local/confs-bkp_linux-${DATA}.tar.bz2 ./etc ./backup/bin 2> $ERRORLOG
+	if [ "$?" -ne 0 ]; then
+		echo -e "$(data_hora) ERRO AO COMPACTAR CONF DO LINUX\n" >> $BKPLOG
+	        ERROR="1"
+	else
+	        echo -e "$(data_hora) OK - COMPACTADO CONF DO LINUX\n" >> $BKPLOG
+	fi
+
+fi
+
+####################################################################################################################################
+if [ "${BACKUP_CONTAS}" = "1" ]; then
+	#### Cria diretorios necessarios
+	if [ ! -d  ${DIR_DEST} ]; then
+	    mkdir -p  ${DIR_DEST}
+	fi
+	#####################################
+	
+	# Backup de contas individuais
+	mkdir -p ${DIR_DEST}
+	for MAIL in $($ZMPROV -l gaa | sort);  do
+		echo -e "$(data_hora) Realizando backup da conta ${MAIL}" >> ${BKPLOG}
+		time $ZMMAILBOX -z -m ${MAIL} getRestURL "//?fmt=tgz" > ${DIR_DEST}/${MAIL}.tgz 2> $ERRORLOG
+			if [ "$?" -ne 0 ]; then
+				echo -e "$(data_hora) ERRO AO REALIZAR BACKUP DE EMAIL ${MAIL}" >> $BKPLOG
+			        ERROR=1;
+			fi
+	
+	done
+	
+	
+	if [ "$?" -ne 0 ]; then
+	    echo -e "$(data_hora) ERRO AO REALIZAR BACKUP DE EMAIL ZIMBRA\n" >> $BKPLOG
+	    ERROR=1;
+	else
+	    echo -e "$(data_hora) OK - BACKUP DE CONTA INDIVIDUAL DE EMAIL ZIMBRA REALIZADO COM SUCESSO\n" >> $BKPLOG
+	fi
+	
+fi
+####################################################################################################################################
+
+if [ "${ENVIO_REMOTO}" = "1" ]; then
+## envia backup para servidor remoto
+        echo -e "\n$(data_hora) Iniciando envio do backup para servidor remoto..." >> $BKPLOG
+	rsync -azvhHK --delete ${ROOTDIR} root@${SRV_REMOTE} --exclude "backup/logs" --exclude "backup/zimbra-tmp" 2> $ERRORLOG
+	if [ "$?" -gt 1 ]; then
+	        cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao sincronizar databases do zimbra. $(data_hora)";
+	        ERROR="1"
+	   
+	        echo -e "$(data_hora) ERRO AO ENVIAR BACKUP PARA SERVIDOR REMOTO\n" >> $BKPLOG
+	else
+	        echo -e "$(data_hora) OK - ENVIADO COM SUCESSO BACKUP PARA SERVIDOR REMOTO\n" >> $BKPLOG
+	fi
+fi
+
+####################################################################################################################################
+# Removendo lock
+echo -e "$(data_hora) Finalizando backup Zimbra.\n" >> $BKPLOG
+#rm  $LOCK
+
+
+### Limpando swap ###
+bash /backup/bin/clear-cache.sh
+
+#####################################
+
+####################################################################################################################################
+## Montagem NFS
+#mount /nfs/backup-zimbra
+#if [ $? -gt 0 ]; then
+#    echo -e "ERRO AO MONTAR O COMPARTILHAMENTO NFS.\n" >> $BKPLOG;
+#    cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao montar NFS.";
+#    ERROR=1;
+#    exit 1
+#fi
+#
+#umount /nfs/backup-zimbra
+#umount ${MNTDIR}
+##mount.cifs //192.168.0.223/bkpmail ${MNTDIR} -o 'user=backup,password=area31@123,domain=area31,hard,nosetuids,noperm'
+#
+#if [ $? -gt 0 ]; then
+#    echo -e "ERRO AO MONTAR O COMPARTILHAMENTO CIFS.\n" >> $BKPLOG;
+#    cat $ERRORLOG | python $MAILSCRIPT "$FALHA ao montar CIFS.";
+#    ERROR=1;
+#    exit 1
+#fi
+#
+##################################################################/etc/init.d/zimbra start >> ${BKPLOG} 2> ${ERRORLOG}
+#if [ "$NDAY" = "08" -o  "$NDAY" = "13" -o  "$NDAY" = "23" ]; then
+#echo -e "####################\nestado do servidor no ato do erro:\n\nmemoria:$(free -m)\n\n$(uptime)\n####################" >> $BKPLOG
+
+
+
+
+
+sleep 300
+
+####################################################################################
+####################################################################################
+# Se o zimbra não estiver rodando, inicia o processo....
+
+CHECK_ZIMBRA=$(/etc/init.d/zimbra status | egrep -v "Host|Running" | wc -l)
+if [ "${CHECK_ZIMBRA}" -ne 0 ]; then
+        echo -e "Iniciando Zimbra...\n" 
+        echo /etc/init.d/zimbra stop 2>&1
+        echo /etc/init.d/zimbra start
+fi
+
+####################################################################################
+####################################################################################
+
+
+
+
+
+# e-mail se tudo estiver ok.
+
+ {
+ if [ "$ERROR" -eq 0 ]; then
+       echo $SUCESSO | python $MAILSCRIPT  "$SUCESSO no backup `date`" && echo -e "`date` - [OK] email disparado com sucesso para Hackstore.\n--------------------\n\n"
+ fi
+ }  >> $LOGMAIL 2>&1
+
+
+
+## Fim
