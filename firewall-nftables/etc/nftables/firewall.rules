@@ -1,0 +1,23 @@
+# A simple firewall
+#
+
+table ip filter {
+        chain input {
+                 type filter hook input priority 0;
+                 ct state established,related accept
+
+		 # invalid connections
+		 ct state invalid drop
+
+                 iifname "lo" accept
+                 ip protocol icmp accept
+
+		 #open tcp ports: sshd (22), httpd (80)
+		 tcp dport {ssh, http} accept
+		 #tcp dport {ssh} accept
+		
+	 	 # everything else
+                 drop
+        }
+}
+

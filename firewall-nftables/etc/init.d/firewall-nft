@@ -1,0 +1,38 @@
+#!/sbin/runscript
+#######     Firewall escrito por Raphael Bastos  #############
+###########  raphaelbastos@hackstore.com,br  #################
+#      Este script foi escrito para a seguinte distro:       #
+#      * Funtoo Linux *                                      #
+##############################################################
+
+depend() {
+	need net
+	}
+
+start(){
+##################### PARTE 1 #####################
+ebegin "Iniciando o Firewall NFTables"
+
+# Cria link simbólico RCFIREWALL caso não exista
+if [ ! -L /usr/sbin/rcfirewall-nft ];then
+	ln -s /etc/init.d/firewall-nft /usr/sbin/rcfirewall-nft 2> /dev/null
+fi
+
+#######################################################################
+
+nft delete rule filter input > /dev/null
+nft delete rule filter output > /dev/null
+
+nft -f /etc/nftables/firewall.rules
+
+
+}
+
+stop(){
+nft delete rule filter input
+}
+
+status(){
+nft list table filter
+}
+# Fim do script
