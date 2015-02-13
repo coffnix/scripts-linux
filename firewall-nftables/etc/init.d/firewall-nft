@@ -23,6 +23,9 @@ fi
 nft delete rule filter input > /dev/null
 nft delete rule filter output > /dev/null
 
+
+nft -f /etc/nftables/ipv4-filter
+
 nft -f /etc/nftables/firewall.rules
 
 
@@ -30,6 +33,8 @@ nft -f /etc/nftables/firewall.rules
 
 stop(){
 nft delete rule filter input
+nft delete rule filter output
+nft delete rule filter forward
 }
 
 status(){
