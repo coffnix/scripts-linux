@@ -12,7 +12,8 @@ depend() {
 
 start(){
 ##################### PARTE 1 #####################
-ebegin "Iniciando o Firewall NFTables"
+ebegin "Starting Firewall NFTables"
+
 
 # Cria link simbólico RCFIREWALL caso não exista
 if [ ! -L /usr/sbin/rcfirewall-nft ];then
@@ -54,6 +55,7 @@ nft -f /etc/nftables/firewall.rules
 }
 
 stop(){
+ebegin "Stoping Firewall NFTables"
 
 #######################################################################
 
