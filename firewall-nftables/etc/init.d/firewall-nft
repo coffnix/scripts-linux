@@ -18,6 +18,12 @@ if [ ! -L /usr/sbin/rcfirewall-nft ];then
 	ln -s /etc/init.d/firewall-nft /usr/sbin/rcfirewall-nft 2> /dev/null
 fi
 
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 1 > /proc/sys/net/ipv4/ip_dynaddr
+echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
+for f in /proc/sys/net/ipv4/conf/*/rp_filter ; do echo 1 > $f ; done
+
+
 #######################################################################
 
 # ipv4
