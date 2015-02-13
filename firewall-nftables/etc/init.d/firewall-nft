@@ -23,6 +23,9 @@ echo 1 > /proc/sys/net/ipv4/ip_dynaddr
 echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
 for f in /proc/sys/net/ipv4/conf/*/rp_filter ; do echo 1 > $f ; done
 
+iptables -F
+iptables -X
+iptables -t nat -F
 
 #######################################################################
 
@@ -41,6 +44,10 @@ nft -f /etc/nftables/firewall.rules
 }
 
 stop(){
+iptables -F
+iptables -X
+iptables -t nat -F
+
 # ipv4
 nft delete rule filter input
 nft delete rule filter output
