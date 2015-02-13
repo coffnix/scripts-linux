@@ -1,23 +1,48 @@
 # A simple firewall
 #
-
 table ip filter {
         chain input {
-                 type filter hook input priority 0;
-                 ct state established,related accept
+                type filter hook input priority 0;
+                ct state established,related accept
 
-		 # invalid connections
-		 ct state invalid drop
+		# invalid connections
+		ct state invalid drop
 
-                 iifname "lo" accept
-                 ip protocol icmp accept
+		# loopback interface
+                iifname "lo" accept
 
-		 #open tcp ports: sshd (22), httpd (80)
-		 tcp dport {ssh, http} accept
-		 #tcp dport {ssh} accept
+		# icmp
+                ip protocol icmp accept
+
+		# open tcp ports: sshd (22), httpd (80)
+		tcp dport {ssh, http} accept
 		
-	 	 # everything else
+	 	# everything else
                  drop
         }
 }
 
+
+table ip6 filter {
+	chain input {
+		type filter hook input priority 0;
+		
+		# established/related connections
+		ct state established,related accept
+		
+		# invalid connections
+		ct state invalid drop
+		
+		# loopback interface
+		iifname lo accept
+		
+		# icmp
+		ip6 nexthdr icmpv6 accept
+		
+		# open tcp ports: sshd (22), httpd (80)
+		tcp dport {ssh, http} accept
+		
+		# everything else
+		drop
+	}
+}

@@ -33,6 +33,7 @@ nft delete rule filter input
 }
 
 status(){
-nft list table filter
+nft list ruleset
 }
+
 # Fim do script
