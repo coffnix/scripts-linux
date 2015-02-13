@@ -7,24 +7,32 @@
 
 depend() {
 	need net
+	need nftables
 	}
 
 start(){
 ##################### PARTE 1 #####################
-ebegin "Starting Firewall NFTables"
+ebegin "Iniciando o Firewall NFTables"
 
 # Cria link simbólico RCFIREWALL caso não exista
 if [ ! -L /usr/sbin/rcfirewall-nft ];then
 	ln -s /etc/init.d/firewall-nft /usr/sbin/rcfirewall-nft 2> /dev/null
 fi
 
+#######################################################################
+### Incompatibilities ###
+# You cannot use iptables and nft to perform NAT at the same time. So make sure that the iptable_nat module is unloaded
+rmmod iptable_nat
+
+#######################################################################
+
 echo 1 > /proc/sys/net/ipv4/ip_forward
 echo 1 > /proc/sys/net/ipv4/ip_dynaddr
 echo 1 > /proc/sys/net/ipv4/conf/all/rp_filter
 for f in /proc/sys/net/ipv4/conf/*/rp_filter ; do echo 1 > $f ; done
 
-iptables -F
-iptables -X
+#######################################################################
+
 iptables -t nat -F
 
 #######################################################################
@@ -41,28 +49,35 @@ nft -f /etc/nftables/ipv6-filter
 # regras de firewall NTFtables
 nft -f /etc/nftables/firewall.rules
 
+#######################################################################
+
 }
 
 stop(){
-ebegin "Stoping Firewall NFTables"
-iptables -F
-iptables -X
-iptables -t nat -F
 
-# ipv4
-nft delete rule filter input
-nft delete rule filter output
-nft delete rule filter forward
+#######################################################################
 
-# ipv6
-nft delete rule ip6 filter input
-nft delete rule ip6 filter output
-nft delete rule ip6 filter forward
+#iptables -t nat -F
+NFT=nft
+FAMILIES="ip ip6 arp bridge"
 
-# ipv4 nat
-nft delete rule ip nat input
-nft delete rule ip nat prerouting
-nft delete rule ip nat postrouting
+for FAMILY in $FAMILIES; do
+  TABLES=$($NFT list tables $FAMILY | grep "^table\s" | cut -d' ' -f2)
+  
+  for TABLE in $TABLES; do
+    CHAINS=$($NFT list table $FAMILY $TABLE | grep "^\schain\s" | cut -d' ' -f2)
+
+    for CHAIN in $CHAINS; do
+      echo "Flushing chain: $FAMILY->$TABLE->$CHAIN"
+      $NFT flush chain $FAMILY $TABLE $CHAIN
+      $NFT delete chain $FAMILY $TABLE $CHAIN
+    done
+
+    echo "Flushing table: $FAMILY->$TABLE"
+    $NFT flush table $FAMILY $TABLE
+    $NFT delete table $FAMILY $TABLE
+  done
+done
 }
 
 status(){
