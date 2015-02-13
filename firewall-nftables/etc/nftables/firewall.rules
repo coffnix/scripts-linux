@@ -16,7 +16,11 @@ table ip filter {
 
 		# open tcp ports: sshd (22), httpd (80)
 		tcp dport {ssh, http} accept
+		udp dport {5060} accept
+		udp dport {4000-20000} accept
 		
+		# LAN
+                ip saddr 192.168.100.0/24 accept
 	 	# everything else
                  drop
         }
@@ -46,3 +50,12 @@ table ip6 filter {
 		drop
 	}
 }
+
+table ip nat {
+        chain postrouting {
+                 masquerade
+                 ip saddr 192.168.100.0/24 oif eth0 snat 192.168.25.3 
+        }
+
+}
+

@@ -20,21 +20,35 @@ fi
 
 #######################################################################
 
-nft delete rule filter input > /dev/null
-nft delete rule filter output > /dev/null
-
-
+# ipv4
 nft -f /etc/nftables/ipv4-filter
 
-nft -f /etc/nftables/firewall.rules
+# ipv4 nat
+nft -f /etc/nftables/ipv4-nat
 
+# ipv6
+nft -f /etc/nftables/ipv6-filter
+
+# regras de firewall NTFtables
+nft -f /etc/nftables/firewall.rules
 
 }
 
 stop(){
+# ipv4
 nft delete rule filter input
 nft delete rule filter output
 nft delete rule filter forward
+
+# ipv6
+nft delete rule ip6 filter input
+nft delete rule ip6 filter output
+nft delete rule ip6 filter forward
+
+# ipv4 nat
+nft delete rule ip nat input
+nft delete rule ip nat prerouting
+nft delete rule ip nat postrouting
 }
 
 status(){
